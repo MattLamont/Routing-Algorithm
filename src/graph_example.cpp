@@ -1,7 +1,10 @@
 #include <boost/config.hpp>
 #include <iostream>
 #include <fstream>
+#include <cstdio>
 #include <string>
+#include <vector>
+#include <sstream>
 
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
@@ -12,80 +15,99 @@ using namespace boost;
 
 int main( int argc , char** argv )
 {
-    typedef adjacency_list < listS, vecS, directedS,
-            no_property, property < edge_weight_t, int > > graph_t;
+    typedef adjacency_list <    vecS,
+                                vecS,
+                                undirectedS,
+                                no_property,
+                                property < edge_weight_t, int > >
+                                graph_t;
+
     typedef graph_traits < graph_t >::vertex_descriptor vertex_descriptor;
-    typedef std::pair<int, int> Edge;
+
 
     if( argc != 3 )
     {
         std::cerr << "Usage: ./routing_table <input-file> <source-node>\n";
-        return -1;
+        return EXIT_FAILURE;
     }
 
     std::ifstream infile;
     infile.open( argv[1] );
 
+    if( !infile )
+    {
+        std::cerr << "Error: could not open file.\n";
+        return EXIT_FAILURE;
+    }
+
     std::string line = "";
-    unsigned int count = 0;
+    int vertex1;
+    int vertex2;
+    int weight;
+    int vertex_count = 0;
+
+    std::vector< std::pair<int , int> > edge_array;
+    std::vector< int > weights;
+
+    std::getline( infile , line );
+    std::stringstream count_stream( line );
+    count_stream >> vertex_count;
+
     while( std::getline( infile , line ) )
     {
-        count++;
+        std::stringstream line_stream( line );
+        line_stream >> vertex1;
+        line_stream >> vertex2;
+        line_stream >> weight;
 
+        edge_array.push_back( std::pair<int , int >( vertex1 , vertex2 ) );
+        weights.push_back( weight );
     }
 
-    std::cout << "\n\nRead in " << count << " lines.\n\n";
 
-    const int num_nodes = 5;
-    enum nodes { A, B, C, D, E };
-    char name[] = "ABCDE";
-    Edge edge_array[] = { Edge(A, C), Edge(B, B), Edge(B, D), Edge(B, E),
-                          Edge(C, B), Edge(C, D), Edge(D, E), Edge(E, A), Edge(E, B)
-                        };
-    int weights[] = { 1, 2, 1, 2, 7, 3, 1, 1, 1 };
-    int num_arcs = sizeof(edge_array) / sizeof(Edge);
-    graph_t g(edge_array, edge_array + num_arcs, weights, num_nodes);
-    property_map<graph_t, edge_weight_t>::type weightmap = get(edge_weight, g);
-    std::vector<vertex_descriptor> p(num_vertices(g));
-    std::vector<int> d(num_vertices(g));
-    vertex_descriptor s = vertex(A, g);
+    graph_t graph( edge_array.begin() , edge_array.end() , weights.begin() , vertex_count );
 
-    dijkstra_shortest_paths(g, s,
-                            predecessor_map(boost::make_iterator_property_map(p.begin(), get(boost::vertex_index, g))).
-                            distance_map(boost::make_iterator_property_map(d.begin(), get(boost::vertex_index, g))));
 
-    std::cout << "distances and parents:" << std::endl;
+    property_map<graph_t, edge_weight_t>::type weightmap = get( edge_weight, graph );
+
+
+    std::vector<vertex_descriptor> parents(num_vertices( graph ));
+
+    std::vector<int> distances(num_vertices( graph ));
+
+
+    std::stringstream arg_stream( argv[2] );
+    int source_node;
+    arg_stream >> source_node;
+    vertex_descriptor source = vertex( source_node , graph );
+
+
+    dijkstra_shortest_paths(    graph ,
+                                source ,
+                                predecessor_map( boost::make_iterator_property_map( parents.begin() , get( boost::vertex_index , graph ))).
+                                distance_map( boost::make_iterator_property_map( distances.begin() , get( boost::vertex_index, graph ))));
+
+    std::cout << "Source Node: " << source_node << "\n";
+
+    std::cout << "---------------------Shortest Distances-------------------------------\n\n";
+    printf( "%10s%20s\n" , "Node" , "Distance" );
+
     graph_traits < graph_t >::vertex_iterator vi, vend;
-    for (boost::tie(vi, vend) = vertices(g); vi != vend; ++vi)
+
+    for( boost::tie( vi , vend ) = vertices( graph ); vi != vend; ++vi)
     {
-        std::cout << "distance(" << name[*vi] << ") = " << d[*vi] << ", ";
-        std::cout << "parent(" << name[*vi] << ") = " << name[p[*vi]] << std::
-                  endl;
+        printf( "%10i%20i\n" , *vi , distances[*vi] );
     }
-    std::cout << std::endl;
 
-    std::ofstream dot_file("figs/dijkstra-eg.dot");
+    std::cout << "\n\n---------------------Forwarding Table-------------------------------\n\n";
+    printf( "%15s%20s\n" , "Destination" , "Link" );
 
-    dot_file << "digraph D {\n"
-             << "  rankdir=LR\n"
-             << "  size=\"4,3\"\n"
-             << "  ratio=\"fill\"\n"
-             << "  edge[style=\"bold\"]\n" << "  node[shape=\"circle\"]\n";
-
-    graph_traits < graph_t >::edge_iterator ei, ei_end;
-    for (boost::tie(ei, ei_end) = edges(g); ei != ei_end; ++ei)
+    for( boost::tie( vi , vend ) = vertices( graph ); vi != vend; ++vi)
     {
-        graph_traits < graph_t >::edge_descriptor e = *ei;
-        graph_traits < graph_t >::vertex_descriptor
-        u = source(e, g), v = target(e, g);
-        dot_file << name[u] << " -> " << name[v]
-                 << "[label=\"" << get(weightmap, e) << "\"";
-        if (p[v] == u)
-            dot_file << ", color=\"black\"";
-        else
-            dot_file << ", color=\"grey\"";
-        dot_file << "]";
+        printf( "%15i%20i\n" , *vi , distances[*vi] );
     }
-    dot_file << "}";
+
+    std::cout << "\n";
+
     return EXIT_SUCCESS;
 }
