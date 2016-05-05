@@ -1,5 +1,5 @@
 FILE(REMOVE_RECURSE
-  "CMakeFiles/routing_table.dir/src/graph_example.cpp.o"
+  "CMakeFiles/routing_table.dir/src/routing_table.cpp.o"
   "routing_table.pdb"
   "routing_table"
 )

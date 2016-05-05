@@ -15,7 +15,7 @@ include_directories( ${include_dirs})
 link_directories( ${Boost_LIBRARIES})
 
 add_executable( routing_table
-                "src/graph_example.cpp"
+                "src/routing_table.cpp"
                 ${Headers} )
 
 target_link_libraries( routing_table ${Boost_LIBRARIES} pthread )
